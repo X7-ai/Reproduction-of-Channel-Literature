@@ -6,17 +6,16 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 
-# ====================== 超参数设置（可根据你的数据修改）======================
-seq_len = 20       # 序列长度：必须是偶数（适配池化后seq_len//2，避免长度不一致）
-input_size = 1     # 输入y的特征维度（单变量y=1，多变量对应修改）
-output_size = 1    # 输出x的特征维度（单变量x=1，多变量对应修改）
-# CNN专属超参数（可调整用于对比）
-cnn_channels = 64  # 卷积核数量（对应LSTM的hidden_size，保持64方便对比）
-kernel_size = 3    # 卷积核大小（时序序列常用3/5）
+# ====================== 超参数设置======================
+seq_len = 20       # 序列长度
+input_size = 1     # 输入y的特征维度
+output_size = 1    # 输出x的特征维度
+cnn_channels = 64  # 卷积核数量
+kernel_size = 3    # 卷积核大小
 stride = 1         # 卷积步长
 pool_kernel = 2    # 池化核大小
 pool_stride = 2    # 池化步长
-pool_padding = 0   # 池化padding（整数，替换原"same"）
+pool_padding = 0   # 池化padding
 batch_size = 32    # 批次大小
 epochs = 100       # 训练轮次
 learning_rate = 0.001  # 学习率
@@ -51,7 +50,7 @@ for i in range(total_samples):
     y_data.append(y_seq)
     x_data.append(x_seq)
 
-# 5. 调整形状：(样本数, seq_len, input_size) → 原代码标准格式
+
 y_data = np.array(y_data).reshape(-1, seq_len, input_size)
 x_data = np.array(x_data).reshape(-1, seq_len, output_size)
 # ==========================================================================
@@ -60,7 +59,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"使用设备: {device}")
 
 
-# ---------------------- 数据预处理（和LSTM完全一致，保证对比公平）----------------------
+# ---------------------- 数据预处理----------------------
 # 归一化：CNN对数值范围也敏感，保持和LSTM相同的归一化策略
 scaler_y = MinMaxScaler(feature_range=(0, 1))
 scaler_x = MinMaxScaler(feature_range=(0, 1))
@@ -83,7 +82,6 @@ train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 test_dataset = TensorDataset(y_test_tensor, x_test_tensor)
 test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
-# ---------------------- 【核心修改：修复MaxPool1d的padding参数】----------------------
 class SimpleCNN(nn.Module):
     def __init__(self, input_size, seq_len, cnn_channels, kernel_size, output_size):
         super(SimpleCNN, self).__init__()
@@ -93,17 +91,17 @@ class SimpleCNN(nn.Module):
             out_channels=cnn_channels, # 卷积核数量（对应LSTM的hidden_size）
             kernel_size=kernel_size,   # 卷积核大小（滑动窗口提取局部时序特征）
             stride=stride,             # 步长
-            padding="same"             # Conv1d支持"same"，保持序列长度不变
+            padding="same"             
         )
         self.relu = nn.ReLU()  # 激活函数
         # 修复：MaxPool1d的padding改为整数（0），并显式指定步长
         self.pool = nn.MaxPool1d(
             kernel_size=pool_kernel,
             stride=pool_stride,
-            padding=pool_padding  # 整数，替换原"same"
+            padding=pool_padding  
         )
         
-        # 重新计算全连接层输入维度：池化后序列长度=seq_len//pool_stride（seq_len=20→10）
+    
         pool_out_len = seq_len // pool_stride
         fc_input_dim = cnn_channels * pool_out_len
         self.fc1 = nn.Linear(fc_input_dim, 128)  # 中间全连接层
@@ -129,7 +127,7 @@ class SimpleCNN(nn.Module):
         x = x.reshape(x.size(0), seq_len, output_size)
         return x
 
-# ---------------------- 初始化CNN模型（替换原LSTM初始化）----------------------
+# ---------------------- 初始化CNN模型----------------------
 model = SimpleCNN(
     input_size=input_size,
     seq_len=seq_len,
@@ -138,11 +136,11 @@ model = SimpleCNN(
     output_size=output_size
 ).to(device)
 
-# 损失函数、优化器和LSTM完全一致（保证对比公平）
+# 损失函数、优化器和LSTM完全一致
 criterion = nn.MSELoss()  
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-# ---------------------- 模型训练（和LSTM完全一致）----------------------
+# ---------------------- 模型训练----------------------
 print("开始训练CNN模型...")
 model.train()  # 开启训练模式
 for epoch in range(epochs):
@@ -168,7 +166,7 @@ for epoch in range(epochs):
 
 print("CNN训练完成！")
 
-# ---------------------- 模型测试与评估（和LSTM完全一致）----------------------
+# ---------------------- 模型测试与评估----------------------
 model.eval()  # 开启评估模式
 test_loss = 0.0
 all_predictions = []
@@ -194,7 +192,7 @@ all_targets = np.concatenate(all_targets, axis=0)
 predictions_original = scaler_x.inverse_transform(all_predictions.reshape(-1, output_size)).reshape(all_predictions.shape)
 targets_original = scaler_x.inverse_transform(all_targets.reshape(-1, output_size)).reshape(all_targets.shape)
 
-# ---------------------- 新y预测x的核心函数（和LSTM完全一致）----------------------
+# ---------------------- 新y预测x的核心函数----------------------
 def predict_x(new_y):
     """
     输入新的y序列，预测对应的x序列
@@ -227,14 +225,14 @@ def predict_x(new_y):
     
     return pred_original
 
-# ---------------------- 新数据预测（和LSTM完全一致）----------------------
+# ---------------------- 新数据预测----------------------
 test_samples = 100 
-# 生成完整x序列（包含seq_len偏移，保证滑动窗口完整）
+# 生成完整x序列
 x_full_new = np.linspace(8.0, 10.0, test_samples + seq_len)
-# 生成对应的y=泰勒展开值（和训练代码逻辑一致）
+# 生成对应的y=泰勒展开值
 y_full_new = np.array([taylor_exp(xi) for xi in x_full_new])
 
-# 滑动窗口构建序列样本（和训练代码完全一致）
+# 滑动窗口构建序列样本
 y_data_test = []
 x_data_test = []
 for i in range(test_samples):
@@ -253,7 +251,7 @@ print("\n新y预测x的示例结果：")
 print(f"输入y的形状: {y_data_test.shape}")
 print(f"预测x的形状: {pred_x.shape}")
 
-# ---------------------- 结果可视化（和LSTM完全一致，方便对比）----------------------
+# ---------------------- 结果可视化----------------------
 # 1. 测试集样本预测效果对比
 plt.figure(figsize=(10, 4))
 plt.plot(targets_original[0, :, 0], label="real", color="blue")
@@ -272,4 +270,5 @@ plt.xlabel("sequence position")
 plt.ylabel("x")
 plt.title("CNN - new samples")
 plt.legend()
+
 plt.show()
