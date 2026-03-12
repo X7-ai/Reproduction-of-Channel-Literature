@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 
-# ====================== 超参数设置（可根据你的数据修改）======================
+# ====================== 超参数设置======================
 seq_len = 20       # 序列长度：每个样本的y序列包含多少个时间步
 input_size = 1     # 输入y的特征维度（单变量y=1，多变量对应修改）
 output_size = 1    # 输出x的特征维度（单变量x=1，多变量对应修改）
@@ -194,7 +194,7 @@ x_full_new = np.linspace(8.0, 10.0, test_samples + seq_len)
 # 生成对应的y=泰勒展开值（和训练代码逻辑一致）
 y_full_new = np.array([taylor_exp(xi) for xi in x_full_new])
 
-# 滑动窗口构建序列样本（和训练代码完全一致）
+# 滑动窗口构建序列样本
 y_data_test = []
 x_data_test = []
 for i in range(test_samples):
@@ -234,4 +234,5 @@ plt.xlabel("sequence position")
 plt.ylabel("x")
 plt.title("for new samples")
 plt.legend()
+
 plt.show()
